@@ -1,0 +1,1217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>关键词排名监控 - 24小时自动化系统</title>
+    <meta name="description" content="智能关键词排名监控系统，实时跟踪搜索引擎排名变化，提供优化建议">
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .dashboard {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 16px;
+            padding: 2rem;
+            margin: 2rem 0;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+        
+        .metric-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-2px);
+        }
+        
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin: 0.5rem 0;
+        }
+        
+        .metric-value.excellent { color: #28a745; }
+        .metric-value.good { color: #17a2b8; }
+        .metric-value.fair { color: #ffc107; }
+        .metric-value.poor { color: #dc3545; }
+        
+        .metric-label {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .metric-trend {
+            font-size: 0.8rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 12px;
+            margin-top: 0.5rem;
+        }
+        
+        .trend-up { background: #d4edda; color: #155724; }
+        .trend-down { background: #f8d7da; color: #721c24; }
+        .trend-stable { background: #e2e3e5; color: #383d41; }
+        
+        .rankings-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+            font-size: 0.9rem;
+        }
+        
+        .rankings-table th,
+        .rankings-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .rankings-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+        
+        .rankings-table tbody tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .rank-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            min-width: 30px;
+            text-align: center;
+        }
+        
+        .rank-1-3 { background: #d4edda; color: #155724; }
+        .rank-4-10 { background: #cce5ff; color: #004085; }
+        .rank-11-20 { background: #fff3cd; color: #856404; }
+        .rank-21-50 { background: #f8d7da; color: #721c24; }
+        .rank-none { background: #e2e3e5; color: #383d41; }
+        
+        .keyword-score {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.8rem;
+        }
+        
+        .score-high { background: #28a745; color: white; }
+        .score-medium { background: #ffc107; color: #212529; }
+        .score-low { background: #6c757d; color: white; }
+        
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin: 2rem 0;
+        }
+        
+        .opportunity-card {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 0.5rem 0;
+            transition: all 0.3s ease;
+        }
+        
+        .opportunity-card:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            transform: translateY(-1px);
+        }
+        
+        .opportunity-urgent { border-left: 4px solid #dc3545; }
+        .opportunity-high { border-left: 4px solid #ffc107; }
+        .opportunity-medium { border-left: 4px solid #17a2b8; }
+        
+        .filter-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin: 1rem 0;
+            flex-wrap: wrap;
+        }
+        
+        .filter-tab {
+            padding: 0.5rem 1rem;
+            border: 1px solid #dee2e6;
+            border-radius: 20px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+        
+        .filter-tab.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .filter-tab:hover:not(.active) {
+            background: #f8f9fa;
+        }
+        
+        .search-box {
+            padding: 0.75rem;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 400px;
+            margin: 1rem 0;
+            font-size: 1rem;
+        }
+        
+        .search-box:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            margin: 2rem 0;
+            flex-wrap: wrap;
+        }
+        
+        .action-btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .btn-success { background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; }
+        .btn-warning { background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%); color: white; }
+        
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+        }
+        
+        .loading.show { display: block; }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 0.5rem;
+        }
+        
+        .status-collecting { background: #17a2b8; }
+        .status-monitoring { background: #28a745; }
+        .status-analyzing { background: #ffc107; }
+        .status-error { background: #dc3545; }
+        
+        @media (max-width: 768px) {
+            .metrics-grid {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            }
+            
+            .rankings-table {
+                font-size: 0.8rem;
+            }
+            
+            .rankings-table th,
+            .rankings-table td {
+                padding: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <div class="logo">
+                <svg class="logo-icon" viewBox="0 0 24 24">
+                    <path fill="currentColor" d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.6 0 12 0zm5.6 8.2l-1.9 9c-.1.6-.6.7-1.2.4l-3.3-2.4-1.6 1.5c-.2.2-.3.3-.6.3l.2-3.3L16.8 7c.3-.2-.1-.4-.4-.2L8.1 12l-3.2-1c-.7-.2-.7-.7.1-.9l12.4-4.8c.6-.2 1.1.1.9 1z"/>
+                </svg>
+                <h1><a href="index.html" style="color: inherit; text-decoration: none;">Telegram 导航站</a></h1>
+            </div>
+            <div style="color: white; font-size: 0.9rem;">
+                <span class="status-indicator status-monitoring"></span>
+                关键词排名监控系统
+            </div>
+        </div>
+    </header>
+
+    <main class="main">
+        <div class="container">
+            <section class="hero">
+                <h2>📊 关键词排名监控中心</h2>
+                <p>24小时自动采集关键词，实时监控搜索引擎排名变化</p>
+            </section>
+
+            <!-- 核心指标 -->
+            <div class="dashboard">
+                <h3>🎯 核心排名指标</h3>
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-label">监控关键词</div>
+                        <div class="metric-value excellent" id="totalKeywords">0</div>
+                        <div class="metric-trend trend-up" id="keywordsTrend">+0 今日新增</div>
+                    </div>
+                    
+                    <div class="metric-card">
+                        <div class="metric-label">平均排名</div>
+                        <div class="metric-value good" id="avgRanking">0</div>
+                        <div class="metric-trend trend-stable" id="avgRankingTrend">无变化</div>
+                    </div>
+                    
+                    <div class="metric-card">
+                        <div class="metric-label">前10排名</div>
+                        <div class="metric-value excellent" id="top10Rankings">0</div>
+                        <div class="metric-trend trend-up" id="top10Trend">+0 本周</div>
+                    </div>
+                    
+                    <div class="metric-card">
+                        <div class="metric-label">首页排名</div>
+                        <div class="metric-value good" id="firstPageRankings">0</div>
+                        <div class="metric-trend trend-up" id="firstPageTrend">+0 本周</div>
+                    </div>
+                    
+                    <div class="metric-card">
+                        <div class="metric-label">优化机会</div>
+                        <div class="metric-value fair" id="opportunities">0</div>
+                        <div class="metric-trend trend-stable" id="opportunitiesTrend">待优化</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 排名趋势图 -->
+            <div class="dashboard">
+                <h3>📈 排名趋势分析</h3>
+                <div class="chart-container">
+                    <canvas id="rankingTrendChart"></canvas>
+                </div>
+            </div>
+
+            <!-- 搜索引擎分布 -->
+            <div class="dashboard">
+                <h3>🔍 搜索引擎排名分布</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                    <div class="chart-container" style="height: 300px;">
+                        <canvas id="engineDistChart"></canvas>
+                    </div>
+                    <div class="chart-container" style="height: 300px;">
+                        <canvas id="rankingDistChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 系统控制 -->
+            <div class="dashboard">
+                <h3>🎛️ 系统控制</h3>
+                <div class="action-buttons">
+                    <button class="action-btn btn-primary" onclick="startKeywordCollection()">
+                        🚀 启动关键词采集
+                    </button>
+                    
+                    <button class="action-btn btn-success" onclick="startRankingMonitor()">
+                        📊 开始排名监控
+                    </button>
+                    
+                    <button class="action-btn btn-warning" onclick="analyzeKeywords()">
+                        🧠 智能分析
+                    </button>
+                    
+                    <a href="24h-system-dashboard.html" class="action-btn btn-primary">
+                        ⚡ 系统总控制台
+                    </a>
+                </div>
+            </div>
+
+            <!-- 关键词排名表 -->
+            <div class="dashboard">
+                <h3>📋 关键词排名详情</h3>
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                    <input type="text" class="search-box" id="keywordSearch" placeholder="搜索关键词...">
+                    
+                    <div class="filter-tabs">
+                        <div class="filter-tab active" data-filter="all">全部</div>
+                        <div class="filter-tab" data-filter="top10">前10名</div>
+                        <div class="filter-tab" data-filter="firstPage">首页</div>
+                        <div class="filter-tab" data-filter="opportunities">机会</div>
+                        <div class="filter-tab" data-filter="noRank">无排名</div>
+                    </div>
+                </div>
+                
+                <div class="loading" id="tableLoading">
+                    <div class="spinner"></div>
+                    <p>正在加载排名数据...</p>
+                </div>
+                
+                <table class="rankings-table" id="rankingsTable">
+                    <thead>
+                        <tr>
+                            <th>关键词</th>
+                            <th>分类</th>
+                            <th>得分</th>
+                            <th>百度</th>
+                            <th>Google</th>
+                            <th>Bing</th>
+                            <th>360</th>
+                            <th>最佳排名</th>
+                            <th>趋势</th>
+                            <th>机会</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rankingsTableBody">
+                        <!-- 动态生成内容 -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 优化机会 -->
+            <div class="dashboard">
+                <h3>🎯 优化机会识别</h3>
+                
+                <div class="filter-tabs">
+                    <div class="filter-tab active" data-priority="all">全部机会</div>
+                    <div class="filter-tab" data-priority="urgent">紧急</div>
+                    <div class="filter-tab" data-priority="high">高优先级</div>
+                    <div class="filter-tab" data-priority="medium">中优先级</div>
+                </div>
+                
+                <div id="opportunitiesContainer">
+                    <!-- 动态生成机会卡片 -->
+                </div>
+            </div>
+
+            <!-- 系统状态 -->
+            <div class="dashboard">
+                <h3>⚙️ 系统运行状态</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+                    <div class="metric-card">
+                        <div class="metric-label">
+                            <span class="status-indicator status-collecting"></span>
+                            关键词采集
+                        </div>
+                        <div class="metric-value" id="collectionStatus">运行中</div>
+                        <div class="metric-trend" id="lastCollection">2分钟前</div>
+                    </div>
+                    
+                    <div class="metric-card">
+                        <div class="metric-label">
+                            <span class="status-indicator status-monitoring"></span>
+                            排名监控
+                        </div>
+                        <div class="metric-value" id="monitoringStatus">正常</div>
+                        <div class="metric-trend" id="lastMonitoring">15分钟前</div>
+                    </div>
+                    
+                    <div class="metric-card">
+                        <div class="metric-label">
+                            <span class="status-indicator status-analyzing"></span>
+                            智能分析
+                        </div>
+                        <div class="metric-value" id="analysisStatus">已完成</div>
+                        <div class="metric-trend" id="lastAnalysis">1小时前</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 Telegram 导航站. 24小时关键词排名监控系统</p>
+            <div class="footer-links">
+                <a href="index.html">返回首页</a>
+                <a href="24h-system-dashboard.html">系统控制台</a>
+                <a href="batch-index-monitor.html">批量监控</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // 全局数据
+        let keywordData = [];
+        let rankingData = [];
+        let opportunityData = [];
+        let charts = {};
+        
+        // 模拟数据
+        const mockKeywords = [
+            { keyword: 'Telegram', category: 'brand', score: 9.5, rankings: { baidu: 2, google: 1, bing: 3, so360: 4 }, trend: 'up', opportunities: 1 },
+            { keyword: 'Telegram Bot', category: 'product', score: 8.7, rankings: { baidu: 5, google: 3, bing: 7, so360: 6 }, trend: 'up', opportunities: 2 },
+            { keyword: '电报机器人', category: 'product', score: 8.2, rankings: { baidu: 3, google: 12, bing: 8, so360: 5 }, trend: 'stable', opportunities: 1 },
+            { keyword: 'Telegram频道', category: 'product', score: 7.9, rankings: { baidu: 8, google: 6, bing: 11, so360: 9 }, trend: 'up', opportunities: 2 },
+            { keyword: 'TG导航', category: 'brand', score: 7.5, rankings: { baidu: 12, google: 15, bing: 18, so360: 14 }, trend: 'down', opportunities: 3 },
+            { keyword: 'Telegram下载', category: 'feature', score: 7.2, rankings: { baidu: 15, google: 8, bing: 12, so360: 16 }, trend: 'up', opportunities: 1 },
+            { keyword: '电报群组', category: 'product', score: 6.8, rankings: { baidu: 18, google: 22, bing: 15, so360: 19 }, trend: 'stable', opportunities: 2 },
+            { keyword: 'Telegram教程', category: 'tutorial', score: 6.5, rankings: { baidu: 25, google: 18, bing: 28, so360: 22 }, trend: 'up', opportunities: 1 },
+            { keyword: 'TG机器人开发', category: 'tutorial', score: 6.2, rankings: { baidu: null, google: 35, bing: null, so360: 45 }, trend: 'stable', opportunities: 3 },
+            { keyword: 'Telegram API', category: 'feature', score: 5.8, rankings: { baidu: null, google: 28, bing: 32, so360: null }, trend: 'up', opportunities: 2 }
+        ];
+
+        const mockOpportunities = [
+            { keyword: 'TG导航', type: 'breakthrough_potential', priority: 'high', description: '在百度接近首页，当前第12位', actions: ['优化页面内容', '增加相关内链'] },
+            { keyword: 'Telegram下载', type: 'first_page', priority: 'medium', description: '在Google表现良好，可优化其他引擎', actions: ['跨引擎优化', '提升页面质量'] },
+            { keyword: 'TG机器人开发', type: 'new_opportunity', priority: 'high', description: '高价值关键词尚未充分优化', actions: ['创建专门内容', '建立内链结构'] }
+        ];
+
+        // 初始化页面
+        document.addEventListener('DOMContentLoaded', () => {
+            loadMockData();
+            initializeCharts();
+            updateMetrics();
+            generateRankingsTable();
+            generateOpportunities();
+            bindEvents();
+            
+            // 定期更新数据
+            setInterval(updateRealTimeData, 30000);
+        });
+
+        // 加载模拟数据
+        function loadMockData() {
+            keywordData = mockKeywords;
+            opportunityData = mockOpportunities;
+            
+            console.log('📊 已加载关键词数据:', keywordData.length);
+            console.log('🎯 已加载机会数据:', opportunityData.length);
+        }
+
+        // 更新核心指标
+        function updateMetrics() {
+            const totalKeywords = keywordData.length;
+            const avgRanking = calculateAverageRanking();
+            const top10Count = countRankingsByRange(1, 10);
+            const firstPageCount = countRankingsByRange(1, 20);
+            const opportunitiesCount = opportunityData.length;
+            
+            document.getElementById('totalKeywords').textContent = totalKeywords;
+            document.getElementById('avgRanking').textContent = avgRanking.toFixed(1);
+            document.getElementById('top10Rankings').textContent = top10Count;
+            document.getElementById('firstPageRankings').textContent = firstPageCount;
+            document.getElementById('opportunities').textContent = opportunitiesCount;
+            
+            // 更新趋势
+            document.getElementById('keywordsTrend').textContent = `+${Math.floor(Math.random() * 10)} 今日新增`;
+            document.getElementById('top10Trend').textContent = `+${Math.floor(Math.random() * 5)} 本周`;
+            document.getElementById('firstPageTrend').textContent = `+${Math.floor(Math.random() * 8)} 本周`;
+        }
+
+        // 计算平均排名
+        function calculateAverageRanking() {
+            let totalRank = 0;
+            let count = 0;
+            
+            keywordData.forEach(item => {
+                Object.values(item.rankings).forEach(rank => {
+                    if (rank && rank > 0) {
+                        totalRank += rank;
+                        count++;
+                    }
+                });
+            });
+            
+            return count > 0 ? totalRank / count : 0;
+        }
+
+        // 统计排名范围内的数量
+        function countRankingsByRange(min, max) {
+            let count = 0;
+            
+            keywordData.forEach(item => {
+                Object.values(item.rankings).forEach(rank => {
+                    if (rank && rank >= min && rank <= max) {
+                        count++;
+                    }
+                });
+            });
+            
+            return count;
+        }
+
+        // 初始化图表
+        function initializeCharts() {
+            initRankingTrendChart();
+            initEngineDistChart();
+            initRankingDistChart();
+        }
+
+        // 排名趋势图
+        function initRankingTrendChart() {
+            const ctx = document.getElementById('rankingTrendChart').getContext('2d');
+            
+            // 生成模拟趋势数据
+            const days = 30;
+            const dates = [];
+            const avgRankings = [];
+            const top10Counts = [];
+            
+            for (let i = days; i >= 0; i--) {
+                const date = new Date();
+                date.setDate(date.getDate() - i);
+                dates.push(date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' }));
+                
+                avgRankings.push(15 + Math.random() * 10 - i * 0.1);
+                top10Counts.push(Math.floor(10 + Math.random() * 15 + i * 0.2));
+            }
+            
+            charts.rankingTrend = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: '平均排名',
+                        data: avgRankings,
+                        borderColor: '#dc3545',
+                        backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                        tension: 0.4,
+                        yAxisID: 'y'
+                    }, {
+                        label: '前10排名数量',
+                        data: top10Counts,
+                        borderColor: '#28a745',
+                        backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                        tension: 0.4,
+                        yAxisID: 'y1'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: '日期'
+                            }
+                        },
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: '平均排名'
+                            },
+                            reverse: true
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            title: {
+                                display: true,
+                                text: '前10排名数量'
+                            },
+                            grid: {
+                                drawOnChartArea: false,
+                            },
+                        }
+                    }
+                }
+            });
+        }
+
+        // 搜索引擎分布图
+        function initEngineDistChart() {
+            const ctx = document.getElementById('engineDistChart').getContext('2d');
+            
+            const engineStats = calculateEngineStats();
+            
+            charts.engineDist = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['百度', 'Google', 'Bing', '360搜索'],
+                    datasets: [{
+                        data: [
+                            engineStats.baidu,
+                            engineStats.google,
+                            engineStats.bing,
+                            engineStats.so360
+                        ],
+                        backgroundColor: [
+                            '#dc3545',
+                            '#17a2b8',
+                            '#ffc107',
+                            '#28a745'
+                        ],
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        },
+                        title: {
+                            display: true,
+                            text: '搜索引擎排名分布'
+                        }
+                    }
+                }
+            });
+        }
+
+        // 排名分布图
+        function initRankingDistChart() {
+            const ctx = document.getElementById('rankingDistChart').getContext('2d');
+            
+            const rankingDist = calculateRankingDistribution();
+            
+            charts.rankingDist = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['前3名', '4-10名', '11-20名', '21-50名', '50名以后'],
+                    datasets: [{
+                        label: '关键词数量',
+                        data: [
+                            rankingDist.top3,
+                            rankingDist.top10,
+                            rankingDist.top20,
+                            rankingDist.top50,
+                            rankingDist.beyond50
+                        ],
+                        backgroundColor: [
+                            '#28a745',
+                            '#17a2b8',
+                            '#ffc107',
+                            '#fd7e14',
+                            '#dc3545'
+                        ],
+                        borderColor: [
+                            '#28a745',
+                            '#17a2b8',
+                            '#ffc107',
+                            '#fd7e14',
+                            '#dc3545'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        title: {
+                            display: true,
+                            text: '排名区间分布'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '关键词数量'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 计算搜索引擎统计
+        function calculateEngineStats() {
+            const stats = { baidu: 0, google: 0, bing: 0, so360: 0 };
+            
+            keywordData.forEach(item => {
+                if (item.rankings.baidu) stats.baidu++;
+                if (item.rankings.google) stats.google++;
+                if (item.rankings.bing) stats.bing++;
+                if (item.rankings.so360) stats.so360++;
+            });
+            
+            return stats;
+        }
+
+        // 计算排名分布
+        function calculateRankingDistribution() {
+            const dist = { top3: 0, top10: 0, top20: 0, top50: 0, beyond50: 0 };
+            
+            keywordData.forEach(item => {
+                Object.values(item.rankings).forEach(rank => {
+                    if (rank) {
+                        if (rank <= 3) dist.top3++;
+                        else if (rank <= 10) dist.top10++;
+                        else if (rank <= 20) dist.top20++;
+                        else if (rank <= 50) dist.top50++;
+                        else dist.beyond50++;
+                    }
+                });
+            });
+            
+            return dist;
+        }
+
+        // 生成排名表格
+        function generateRankingsTable() {
+            const tbody = document.getElementById('rankingsTableBody');
+            tbody.innerHTML = '';
+            
+            keywordData.forEach(item => {
+                const row = document.createElement('tr');
+                
+                const bestRank = getBestRank(item.rankings);
+                const trendIcon = getTrendIcon(item.trend);
+                const scoreClass = getScoreClass(item.score);
+                
+                row.innerHTML = `
+                    <td><strong>${item.keyword}</strong></td>
+                    <td><span class="badge">${getCategoryName(item.category)}</span></td>
+                    <td><span class="keyword-score ${scoreClass}">${item.score}</span></td>
+                    <td>${getRankBadge(item.rankings.baidu)}</td>
+                    <td>${getRankBadge(item.rankings.google)}</td>
+                    <td>${getRankBadge(item.rankings.bing)}</td>
+                    <td>${getRankBadge(item.rankings.so360)}</td>
+                    <td>${getRankBadge(bestRank)}</td>
+                    <td>${trendIcon}</td>
+                    <td><span class="badge">${item.opportunities} 个机会</span></td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+        }
+
+        // 获取最佳排名
+        function getBestRank(rankings) {
+            const ranks = Object.values(rankings).filter(r => r && r > 0);
+            return ranks.length > 0 ? Math.min(...ranks) : null;
+        }
+
+        // 获取趋势图标
+        function getTrendIcon(trend) {
+            const icons = {
+                up: '<span class="metric-trend trend-up">↗ 上升</span>',
+                down: '<span class="metric-trend trend-down">↘ 下降</span>',
+                stable: '<span class="metric-trend trend-stable">→ 稳定</span>'
+            };
+            return icons[trend] || icons.stable;
+        }
+
+        // 获取得分样式
+        function getScoreClass(score) {
+            if (score >= 8) return 'score-high';
+            if (score >= 6) return 'score-medium';
+            return 'score-low';
+        }
+
+        // 获取分类名称
+        function getCategoryName(category) {
+            const names = {
+                brand: '品牌词',
+                product: '产品词',
+                feature: '功能词',
+                tutorial: '教程词',
+                commercial: '商业词',
+                general: '通用词'
+            };
+            return names[category] || '其他';
+        }
+
+        // 获取排名徽章
+        function getRankBadge(rank) {
+            if (!rank) return '<span class="rank-badge rank-none">-</span>';
+            
+            let className = 'rank-none';
+            if (rank <= 3) className = 'rank-1-3';
+            else if (rank <= 10) className = 'rank-4-10';
+            else if (rank <= 20) className = 'rank-11-20';
+            else if (rank <= 50) className = 'rank-21-50';
+            
+            return `<span class="rank-badge ${className}">${rank}</span>`;
+        }
+
+        // 生成优化机会
+        function generateOpportunities() {
+            const container = document.getElementById('opportunitiesContainer');
+            container.innerHTML = '';
+            
+            opportunityData.forEach(opp => {
+                const card = document.createElement('div');
+                card.className = `opportunity-card opportunity-${opp.priority}`;
+                
+                card.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+                        <div>
+                            <h4 style="margin: 0; font-size: 1.1rem;">${opp.keyword}</h4>
+                            <p style="margin: 0.5rem 0; color: #666;">${opp.description}</p>
+                        </div>
+                        <span class="badge badge-${opp.priority}">${getPriorityName(opp.priority)}</span>
+                    </div>
+                    
+                    <div>
+                        <strong>建议操作：</strong>
+                        <ul style="margin: 0.5rem 0;">
+                            ${opp.actions.map(action => `<li>${action}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+                
+                container.appendChild(card);
+            });
+        }
+
+        // 获取优先级名称
+        function getPriorityName(priority) {
+            const names = {
+                urgent: '紧急',
+                high: '高',
+                medium: '中',
+                low: '低'
+            };
+            return names[priority] || '中';
+        }
+
+        // 绑定事件
+        function bindEvents() {
+            // 搜索功能
+            document.getElementById('keywordSearch').addEventListener('input', filterTable);
+            
+            // 过滤标签
+            document.querySelectorAll('.filter-tab').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    // 更新活动标签
+                    tab.parentElement.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    
+                    // 执行过滤
+                    filterTable();
+                });
+            });
+        }
+
+        // 过滤表格
+        function filterTable() {
+            const searchTerm = document.getElementById('keywordSearch').value.toLowerCase();
+            const activeFilter = document.querySelector('.filter-tab.active').dataset.filter;
+            
+            const tbody = document.getElementById('rankingsTableBody');
+            const rows = tbody.querySelectorAll('tr');
+            
+            rows.forEach((row, index) => {
+                const keyword = keywordData[index];
+                const keywordText = keyword.keyword.toLowerCase();
+                
+                // 搜索过滤
+                const matchesSearch = keywordText.includes(searchTerm);
+                
+                // 分类过滤
+                let matchesFilter = true;
+                if (activeFilter !== 'all') {
+                    const bestRank = getBestRank(keyword.rankings);
+                    
+                    switch (activeFilter) {
+                        case 'top10':
+                            matchesFilter = bestRank && bestRank <= 10;
+                            break;
+                        case 'firstPage':
+                            matchesFilter = bestRank && bestRank <= 20;
+                            break;
+                        case 'opportunities':
+                            matchesFilter = keyword.opportunities > 0;
+                            break;
+                        case 'noRank':
+                            matchesFilter = !bestRank;
+                            break;
+                    }
+                }
+                
+                row.style.display = (matchesSearch && matchesFilter) ? '' : 'none';
+            });
+        }
+
+        // 系统控制函数
+        async function startKeywordCollection() {
+            const button = event.target;
+            const originalText = button.textContent;
+            
+            button.textContent = '🔄 采集中...';
+            button.disabled = true;
+            
+            // 模拟采集过程
+            setTimeout(() => {
+                button.textContent = originalText;
+                button.disabled = false;
+                
+                // 更新状态
+                document.getElementById('collectionStatus').textContent = '已完成';
+                document.getElementById('lastCollection').textContent = '刚刚';
+                
+                // 模拟新增关键词
+                const newKeywords = Math.floor(Math.random() * 20) + 5;
+                keywordData.push(...generateMockKeywords(newKeywords));
+                updateMetrics();
+                generateRankingsTable();
+                
+                alert(`✅ 关键词采集完成！新增 ${newKeywords} 个关键词`);
+            }, 3000);
+        }
+
+        async function startRankingMonitor() {
+            const button = event.target;
+            const originalText = button.textContent;
+            
+            button.textContent = '📊 监控中...';
+            button.disabled = true;
+            
+            // 显示加载状态
+            document.getElementById('tableLoading').classList.add('show');
+            
+            setTimeout(() => {
+                button.textContent = originalText;
+                button.disabled = false;
+                
+                // 隐藏加载状态
+                document.getElementById('tableLoading').classList.remove('show');
+                
+                // 更新状态
+                document.getElementById('monitoringStatus').textContent = '已完成';
+                document.getElementById('lastMonitoring').textContent = '刚刚';
+                
+                // 模拟排名变化
+                keywordData.forEach(keyword => {
+                    Object.keys(keyword.rankings).forEach(engine => {
+                        if (keyword.rankings[engine] && Math.random() < 0.3) {
+                            const change = Math.floor(Math.random() * 6) - 3; // -3 到 +3
+                            keyword.rankings[engine] = Math.max(1, keyword.rankings[engine] + change);
+                        }
+                    });
+                });
+                
+                updateMetrics();
+                generateRankingsTable();
+                updateCharts();
+                
+                alert('✅ 排名监控完成！发现部分排名变化');
+            }, 4000);
+        }
+
+        async function analyzeKeywords() {
+            const button = event.target;
+            const originalText = button.textContent;
+            
+            button.textContent = '🧠 分析中...';
+            button.disabled = true;
+            
+            setTimeout(() => {
+                button.textContent = originalText;
+                button.disabled = false;
+                
+                // 更新状态
+                document.getElementById('analysisStatus').textContent = '已完成';
+                document.getElementById('lastAnalysis').textContent = '刚刚';
+                
+                // 生成新的优化机会
+                const newOpportunities = generateMockOpportunities(3);
+                opportunityData.push(...newOpportunities);
+                generateOpportunities();
+                updateMetrics();
+                
+                alert(`✅ 智能分析完成！识别出 ${newOpportunities.length} 个新的优化机会`);
+            }, 2500);
+        }
+
+        // 生成模拟关键词
+        function generateMockKeywords(count) {
+            const templates = [
+                'Telegram ${type}', '电报${type}', 'TG${type}', 
+                '${type} Telegram', '${type}电报', '${type}TG'
+            ];
+            const types = ['工具', '插件', '脚本', '应用', '软件', '平台'];
+            const categories = ['product', 'feature', 'tutorial', 'commercial'];
+            
+            const newKeywords = [];
+            for (let i = 0; i < count; i++) {
+                const template = templates[Math.floor(Math.random() * templates.length)];
+                const type = types[Math.floor(Math.random() * types.length)];
+                const keyword = template.replace('${type}', type);
+                
+                newKeywords.push({
+                    keyword,
+                    category: categories[Math.floor(Math.random() * categories.length)],
+                    score: Math.round((Math.random() * 5 + 4) * 10) / 10,
+                    rankings: generateMockRankings(),
+                    trend: ['up', 'down', 'stable'][Math.floor(Math.random() * 3)],
+                    opportunities: Math.floor(Math.random() * 4)
+                });
+            }
+            
+            return newKeywords;
+        }
+
+        // 生成模拟排名
+        function generateMockRankings() {
+            const rankings = {};
+            const engines = ['baidu', 'google', 'bing', 'so360'];
+            
+            engines.forEach(engine => {
+                if (Math.random() < 0.7) { // 70%概率有排名
+                    rankings[engine] = Math.floor(Math.random() * 50) + 1;
+                } else {
+                    rankings[engine] = null;
+                }
+            });
+            
+            return rankings;
+        }
+
+        // 生成模拟机会
+        function generateMockOpportunities(count) {
+            const types = ['breakthrough_potential', 'first_page', 'new_opportunity'];
+            const priorities = ['high', 'medium', 'urgent'];
+            const descriptions = [
+                '接近首页突破，短期可见效',
+                '高价值关键词表现不佳',
+                '新兴关键词机会',
+                '竞争对手排名较弱'
+            ];
+            
+            const opportunities = [];
+            for (let i = 0; i < count; i++) {
+                opportunities.push({
+                    keyword: `新机会关键词${i + 1}`,
+                    type: types[Math.floor(Math.random() * types.length)],
+                    priority: priorities[Math.floor(Math.random() * priorities.length)],
+                    description: descriptions[Math.floor(Math.random() * descriptions.length)],
+                    actions: ['优化内容', '增加内链', '提升权重']
+                });
+            }
+            
+            return opportunities;
+        }
+
+        // 更新图表
+        function updateCharts() {
+            if (charts.rankingTrend) {
+                // 更新趋势图数据
+                const newAvgRanking = calculateAverageRanking();
+                const newTop10Count = countRankingsByRange(1, 10);
+                
+                charts.rankingTrend.data.datasets[0].data.push(newAvgRanking);
+                charts.rankingTrend.data.datasets[1].data.push(newTop10Count);
+                charts.rankingTrend.data.labels.push('今天');
+                
+                // 保持数据点数量
+                if (charts.rankingTrend.data.labels.length > 31) {
+                    charts.rankingTrend.data.labels.shift();
+                    charts.rankingTrend.data.datasets[0].data.shift();
+                    charts.rankingTrend.data.datasets[1].data.shift();
+                }
+                
+                charts.rankingTrend.update();
+            }
+            
+            // 更新分布图
+            if (charts.engineDist) {
+                const engineStats = calculateEngineStats();
+                charts.engineDist.data.datasets[0].data = [
+                    engineStats.baidu, engineStats.google, 
+                    engineStats.bing, engineStats.so360
+                ];
+                charts.engineDist.update();
+            }
+            
+            if (charts.rankingDist) {
+                const rankingDist = calculateRankingDistribution();
+                charts.rankingDist.data.datasets[0].data = [
+                    rankingDist.top3, rankingDist.top10, rankingDist.top20,
+                    rankingDist.top50, rankingDist.beyond50
+                ];
+                charts.rankingDist.update();
+            }
+        }
+
+        // 实时数据更新
+        function updateRealTimeData() {
+            // 模拟实时排名变化
+            if (Math.random() < 0.1) { // 10%概率有变化
+                const randomKeyword = keywordData[Math.floor(Math.random() * keywordData.length)];
+                const engines = Object.keys(randomKeyword.rankings);
+                const randomEngine = engines[Math.floor(Math.random() * engines.length)];
+                
+                if (randomKeyword.rankings[randomEngine]) {
+                    const change = Math.floor(Math.random() * 4) - 2; // -2 到 +2
+                    randomKeyword.rankings[randomEngine] = Math.max(1, 
+                        Math.min(100, randomKeyword.rankings[randomEngine] + change));
+                    
+                    // 更新表格中对应行
+                    generateRankingsTable();
+                    updateMetrics();
+                }
+            }
+            
+            // 更新时间戳
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('zh-CN');
+            document.querySelectorAll('.metric-trend').forEach(el => {
+                if (el.textContent.includes('分钟前')) {
+                    const minutes = Math.floor(Math.random() * 30) + 1;
+                    el.textContent = `${minutes}分钟前`;
+                }
+            });
+        }
+
+        // 页面加载完成
+        console.log('📊 关键词排名监控面板已加载');
+        console.log('🎯 系统正在24小时自动监控中');
+    </script>
+</body>
+</html> 

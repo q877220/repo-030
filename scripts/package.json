@@ -1,0 +1,50 @@
+{
+  "name": "telegram-navigation-seo-system",
+  "version": "1.0.0",
+  "description": "24小时自动化关键词排名监控系统",
+  "main": "index.js",
+  "scripts": {
+    "collect": "node keyword-collector.js",
+    "monitor": "node ranking-monitor.js",
+    "analyze": "node keyword-analyzer.js",
+    "backup": "node auto-backup.js",
+    "health": "node health-monitor.js",
+    "sync": "node content-sync.js",
+    "submit": "node 24h-auto-submit.js",
+    "full-system": "npm run collect && npm run monitor && npm run analyze",
+    "start": "node 24h-auto-submit.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "telegram",
+    "seo",
+    "keyword-monitoring",
+    "ranking-tracker",
+    "automation",
+    "github-actions"
+  ],
+  "author": "24h Auto System",
+  "license": "ISC",
+  "dependencies": {
+    "fs-extra": "^11.1.1",
+    "moment-timezone": "^0.5.43",
+    "xml2js": "^0.6.2",
+    "cheerio": "^1.0.0-rc.12",
+    "archiver": "^6.0.1",
+    "crypto": "^1.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/q877220/repo-030.git"
+  },
+  "bugs": {
+    "url": "https://github.com/q877220/repo-030/issues"
+  },
+  "homepage": "https://q877220.github.io/repo-030"
+} 

@@ -1,0 +1,475 @@
+name: 24小时关键词排名监控系统
+
+on:
+  # 关键词采集 - 每天执行2次
+  schedule:
+    - cron: '0 2,14 * * *'  # UTC 2:00(北京10点) 和 14:00(北京22点)
+  
+  # 排名监控 - 每4小时执行一次
+  schedule:
+    - cron: '30 */4 * * *'  # 每4小时的30分执行
+  
+  # 智能分析 - 每天早上执行
+  schedule:
+    - cron: '0 1 * * *'  # UTC 1:00(北京9点)
+  
+  # 内容更新时触发关键词采集
+  push:
+    branches: [ main ]
+    paths:
+      - '**.html'
+      - 'data/**'
+      - 'scripts/keyword-**'
+  
+  # 手动触发
+  workflow_dispatch:
+    inputs:
+      task_type:
+        description: '执行任务类型'
+        required: true
+        default: 'full'
+        type: choice
+        options:
+        - full
+        - collect
+        - monitor
+        - analyze
+      keyword_limit:
+        description: '关键词数量限制'
+        required: false
+        default: '200'
+        type: string
+      force_collection:
+        description: '强制重新采集'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  # 关键词采集任务
+  keyword-collection:
+    runs-on: ubuntu-latest
+    if: contains(github.event.schedule, '2,14') || github.event.inputs.task_type == 'collect' || github.event.inputs.task_type == 'full' || github.event.inputs.force_collection == 'true'
+    
+    steps:
+    - name: 检出仓库
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: 设置Node.js环境
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+    
+    - name: 安装依赖
+      run: |
+        cd scripts
+        npm init -y
+        npm install fs-extra moment-timezone crypto https xml2js cheerio
+    
+    - name: 执行关键词采集
+      run: |
+        echo "🚀 开始关键词采集任务"
+        echo "执行时间: $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
+        cd scripts
+        node keyword-collector.js 2>&1 | tee ../logs/keyword-collection-$(date +%Y%m%d-%H%M%S).log
+    
+    - name: 提交采集结果
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add data/keywords/ logs/
+        if git diff --staged --quiet; then
+          echo "没有新的关键词数据"
+        else
+          git commit -m "🔍 自动关键词采集: $(date '+%Y-%m-%d %H:%M:%S')"
+          git push
+        fi
+    
+    - name: 上传采集报告
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: keyword-collection-report-${{ github.run_id }}
+        path: |
+          logs/keyword-collection-*.log
+          reports/keyword-collection-*.json
+        retention-days: 30
+
+  # 排名监控任务
+  ranking-monitor:
+    runs-on: ubuntu-latest
+    needs: keyword-collection
+    if: always() && (contains(github.event.schedule, '*/4') || github.event.inputs.task_type == 'monitor' || github.event.inputs.task_type == 'full')
+    
+    strategy:
+      matrix:
+        batch: [1, 2, 3, 4]  # 分批执行避免API限制
+      fail-fast: false
+    
+    steps:
+    - name: 检出仓库
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: 拉取最新数据
+      run: |
+        git pull origin main || true
+    
+    - name: 设置Node.js环境
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+    
+    - name: 安装依赖
+      run: |
+        cd scripts
+        npm init -y
+        npm install fs-extra moment-timezone cheerio https
+    
+    - name: 设置批次环境
+      run: |
+        echo "BATCH_NUMBER=${{ matrix.batch }}" >> $GITHUB_ENV
+        echo "TOTAL_BATCHES=4" >> $GITHUB_ENV
+        echo "KEYWORD_LIMIT=${{ github.event.inputs.keyword_limit || '200' }}" >> $GITHUB_ENV
+    
+    - name: 执行排名监控 (批次 ${{ matrix.batch }})
+      run: |
+        echo "📊 开始排名监控任务 - 批次 ${{ matrix.batch }}/4"
+        echo "执行时间: $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
+        cd scripts
+        node ranking-monitor.js 2>&1 | tee ../logs/ranking-monitor-batch${{ matrix.batch }}-$(date +%Y%m%d-%H%M%S).log
+      env:
+        SEARCH_DELAY: 5000  # 增加请求间隔避免被限制
+        MAX_PAGES: 3        # 限制搜索页数
+        BATCH_SIZE: 5       # 小批量处理
+    
+    - name: 上传监控结果
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: ranking-monitor-batch${{ matrix.batch }}-${{ github.run_id }}
+        path: |
+          logs/ranking-monitor-*.log
+          data/rankings/
+        retention-days: 30
+
+  # 合并排名数据
+  merge-ranking-data:
+    runs-on: ubuntu-latest
+    needs: ranking-monitor
+    if: always()
+    
+    steps:
+    - name: 检出仓库
+      uses: actions/checkout@v4
+    
+    - name: 下载所有批次结果
+      uses: actions/download-artifact@v4
+      with:
+        pattern: ranking-monitor-batch*-${{ github.run_id }}
+        merge-multiple: true
+        path: ./batch-results
+    
+    - name: 设置Node.js环境
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+    
+    - name: 安装依赖
+      run: |
+        cd scripts
+        npm init -y
+        npm install fs-extra moment-timezone
+    
+    - name: 合并排名数据
+      run: |
+        echo "🔗 合并所有批次的排名数据"
+        cd scripts
+        node -e "
+        const fs = require('fs-extra');
+        const path = require('path');
+        
+        console.log('开始合并排名数据...');
+        
+        const batchDir = '../batch-results';
+        if (fs.existsSync(batchDir)) {
+          const rankingFiles = fs.readdirSync(batchDir, { recursive: true })
+            .filter(file => file.includes('ranking-history.json'));
+          
+          console.log('找到排名文件:', rankingFiles.length);
+          
+          let mergedData = { rankings: {}, history: {} };
+          
+          rankingFiles.forEach(file => {
+            try {
+              const filePath = path.join(batchDir, file);
+              const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+              
+              if (data.rankings) {
+                Object.assign(mergedData.rankings, data.rankings);
+              }
+              if (data.history) {
+                Object.assign(mergedData.history, data.history);
+              }
+            } catch (error) {
+              console.error('合并文件失败:', file, error.message);
+            }
+          });
+          
+          const outputDir = '../data/rankings';
+          fs.ensureDirSync(outputDir);
+          
+          mergedData.metadata = {
+            lastUpdated: new Date().toISOString(),
+            totalKeywords: Object.keys(mergedData.rankings).length,
+            batchCount: rankingFiles.length
+          };
+          
+          fs.writeFileSync(
+            path.join(outputDir, 'ranking-history.json'),
+            JSON.stringify(mergedData, null, 2)
+          );
+          
+          console.log('✅ 排名数据合并完成，共', Object.keys(mergedData.rankings).length, '个关键词');
+        }
+        "
+    
+    - name: 提交合并结果
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add data/rankings/ logs/
+        if git diff --staged --quiet; then
+          echo "没有新的排名数据"
+        else
+          git commit -m "📊 自动排名监控合并: $(date '+%Y-%m-%d %H:%M:%S')"
+          git push
+        fi
+
+  # 智能分析任务
+  intelligent-analysis:
+    runs-on: ubuntu-latest
+    needs: [keyword-collection, merge-ranking-data]
+    if: always() && (contains(github.event.schedule, '0 1') || github.event.inputs.task_type == 'analyze' || github.event.inputs.task_type == 'full')
+    
+    steps:
+    - name: 检出仓库
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: 拉取最新数据
+      run: |
+        git pull origin main || true
+    
+    - name: 设置Node.js环境
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+    
+    - name: 安装依赖
+      run: |
+        cd scripts
+        npm init -y
+        npm install fs-extra moment-timezone
+    
+    - name: 执行智能分析
+      run: |
+        echo "🧠 开始智能关键词分析"
+        echo "执行时间: $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
+        cd scripts
+        node keyword-analyzer.js 2>&1 | tee ../logs/keyword-analysis-$(date +%Y%m%d-%H%M%S).log
+    
+    - name: 生成优化建议报告
+      run: |
+        echo "📋 生成优化建议报告"
+        cd scripts
+        node -e "
+        const fs = require('fs-extra');
+        const moment = require('moment-timezone');
+        
+        try {
+          const analysisFile = '../data/analysis/keyword-analysis.json';
+          if (fs.existsSync(analysisFile)) {
+            const data = JSON.parse(fs.readFileSync(analysisFile, 'utf8'));
+            
+            const report = '# 关键词排名优化建议报告\\n\\n' +
+                          '## 执行摘要\\n' +
+                          '- 分析时间: ' + moment().tz('Asia/Shanghai').format('YYYY-MM-DD HH:mm:ss') + '\\n' +
+                          '- 分析关键词: ' + (data.metadata?.totalKeywords || 0) + ' 个\\n' +
+                          '- 识别机会: ' + (data.opportunities?.length || 0) + ' 个\\n\\n' +
+                          '## 优化建议\\n' +
+                          '1. 优先处理高价值关键词的排名问题\\n' +
+                          '2. 为新机会关键词创建专门内容\\n' +
+                          '3. 改进接近突破的关键词页面\\n' +
+                          '4. 持续监控排名变化趋势\\n\\n' +
+                          '---\\n' +
+                          '*此报告由24小时自动化系统生成*';
+        
+            fs.writeFileSync('../reports/optimization-suggestions.md', report);
+            console.log('✅ 优化建议报告已生成');
+          }
+        } catch (error) {
+          console.error('生成报告失败:', error.message);
+        }
+        "
+    
+    - name: 提交分析结果
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add data/analysis/ reports/ logs/
+        if git diff --staged --quiet; then
+          echo "没有新的分析数据"
+        else
+          git commit -m "🧠 智能关键词分析: $(date '+%Y-%m-%d %H:%M:%S')"
+          git push
+        fi
+    
+    - name: 上传分析报告
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: keyword-analysis-report-${{ github.run_id }}
+        path: |
+          logs/keyword-analysis-*.log
+          reports/keyword-analysis-*.json
+          reports/optimization-suggestions.md
+          data/analysis/
+        retention-days: 60
+
+  # 系统健康检查
+  system-health-check:
+    runs-on: ubuntu-latest
+    needs: [keyword-collection, merge-ranking-data, intelligent-analysis]
+    if: always()
+    
+    steps:
+    - name: 检出仓库
+      uses: actions/checkout@v4
+    
+    - name: 拉取最新数据
+      run: |
+        git pull origin main || true
+    
+    - name: 检查系统健康状态
+      run: |
+        echo "🏥 执行关键词排名系统健康检查"
+        echo "检查时间: $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
+        
+        if [ -f "data/keywords/keywords-database.json" ]; then
+          KEYWORD_COUNT=$(cat data/keywords/keywords-database.json | grep -o '"[^"]*":' | wc -l)
+          echo "✅ 关键词数据库: $KEYWORD_COUNT 个关键词"
+        else
+          echo "❌ 关键词数据库文件缺失"
+        fi
+        
+        if [ -f "data/rankings/ranking-history.json" ]; then
+          echo "✅ 排名历史数据: 正常"
+        else
+          echo "❌ 排名历史数据文件缺失"
+        fi
+        
+        if [ -f "data/analysis/keyword-analysis.json" ]; then
+          echo "✅ 分析数据: 正常"
+        else
+          echo "❌ 分析数据文件缺失"
+        fi
+        
+        LOG_COUNT=$(find logs/ -name "*.log" -mtime -1 2>/dev/null | wc -l)
+        echo "📋 最近24小时日志: $LOG_COUNT 个文件"
+        
+        REPORT_COUNT=$(find reports/ -name "*.json" -mtime -7 2>/dev/null | wc -l)
+        echo "📊 最近7天报告: $REPORT_COUNT 个文件"
+    
+    - name: 生成系统状态报告
+      run: |
+        cat > system-status-$(date +%Y%m%d).md << 'EOF'
+        # 关键词排名系统状态报告
+        
+        **生成时间**: $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')
+        **工作流ID**: ${{ github.run_id }}
+        
+        ## 任务执行状态
+        - **关键词采集**: ${{ needs.keyword-collection.result }}
+        - **排名监控**: ${{ needs.ranking-monitor.result }}
+        - **数据合并**: ${{ needs.merge-ranking-data.result }}
+        - **智能分析**: ${{ needs.intelligent-analysis.result }}
+        
+        ## 系统指标
+        - **监控频率**: 每4小时排名检查，每日2次关键词采集
+        - **数据完整性**: 自动检查和修复
+        - **报告生成**: 自动生成分析报告和优化建议
+        
+        ## 下次执行时间
+        - **关键词采集**: 每日 10:00 和 22:00 (北京时间)
+        - **排名监控**: 每4小时执行一次
+        - **智能分析**: 每日 09:00 (北京时间)
+        
+        ---
+        *系统正在24小时自动运行中*
+        EOF
+        
+        git add system-status-*.md
+        git commit -m "📊 系统状态报告: $(date '+%Y-%m-%d %H:%M:%S')" || true
+        git push || true
+
+  # 通知和警报
+  notification:
+    runs-on: ubuntu-latest
+    needs: [keyword-collection, merge-ranking-data, intelligent-analysis, system-health-check]
+    if: always()
+    
+    steps:
+    - name: 分析执行结果
+      run: |
+        echo "📊 分析所有任务执行结果"
+        
+        COLLECTION_STATUS="${{ needs.keyword-collection.result }}"
+        MONITOR_STATUS="${{ needs.merge-ranking-data.result }}"
+        ANALYSIS_STATUS="${{ needs.intelligent-analysis.result }}"
+        HEALTH_STATUS="${{ needs.system-health-check.result }}"
+        
+        echo "关键词采集: $COLLECTION_STATUS"
+        echo "排名监控: $MONITOR_STATUS"
+        echo "智能分析: $ANALYSIS_STATUS"
+        echo "健康检查: $HEALTH_STATUS"
+        
+        if [[ "$COLLECTION_STATUS" == "failure" || "$MONITOR_STATUS" == "failure" || "$ANALYSIS_STATUS" == "failure" ]]; then
+          echo "⚠️ 检测到任务失败，需要关注"
+          echo "ALERT_NEEDED=true" >> $GITHUB_ENV
+        else
+          echo "✅ 所有任务执行正常"
+          echo "ALERT_NEEDED=false" >> $GITHUB_ENV
+        fi
+    
+    - name: 发送成功通知
+      if: env.ALERT_NEEDED == 'false'
+      run: |
+        echo "✅ 24小时关键词排名监控系统执行成功"
+        echo "执行时间: $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
+        echo "所有任务均正常完成，系统持续运行中"
+    
+    - name: 发送警报通知
+      if: env.ALERT_NEEDED == 'true'
+      run: |
+        echo "🚨 关键词排名监控系统检测到异常"
+        echo "执行时间: $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
+        echo "请检查失败的任务并及时处理"
+        
+    - name: 清理旧数据
+      run: |
+        echo "🧹 清理超过30天的旧日志和临时文件"
+        
+        find logs/ -name "*.log" -mtime +30 -delete 2>/dev/null || true
+        find reports/ -name "*.json" -mtime +60 -delete 2>/dev/null || true
+        find . -name "*.tmp" -delete 2>/dev/null || true
+        
+        echo "✅ 清理完成" 

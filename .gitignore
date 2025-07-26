@@ -1,0 +1,26 @@
+# 系统文件
+.DS_Store
+Thumbs.db
+*.log
+
+# 编辑器文件
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 临时文件
+*.tmp
+*.temp
+
+# 依赖包
+node_modules/
+npm-debug.log*
+
+# 构建文件
+dist/
+build/
+
+# 环境配置
+.env
+.env.local 

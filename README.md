@@ -1,6 +1,8 @@
 # Telegram 导航站
 
-一个精美的静态 Telegram 资源导航网站，帮助用户快速找到各种 Telegram 相关的资源和工具。
+一个精美的静态 Telegram 资源导航网站，帮助用户快速找到各种 Telegram 相关的资源和工具。包含 **1000+ 精选资源**，涵盖官方客户端、实用机器人、热门频道、开发者工具等多个分类。
+
+🌐 **在线访问**: [https://q877220.github.io/repo-030/](https://q877220.github.io/repo-030/)
 
 ## 🌟 功能特色
 
@@ -10,15 +12,22 @@
 - **⚡ 快速导航**: 按键盘快捷键 `Ctrl/Cmd + K` 快速聚焦搜索框
 - **🎯 精准分类**: 将资源按照官方客户端、机器人、频道等类别精心分类
 - **🌙 优化体验**: 包含回到顶部按钮、加载动画等细节优化
+- **🔗 1000+ 资源**: 包含大量精选的 Telegram 相关资源链接
 
 ## 📦 项目结构
 
 ```
 telegram-navigation/
-├── index.html          # 主页面
-├── styles.css          # 样式文件
-├── script.js           # 交互脚本
-└── README.md          # 项目说明
+├── index.html              # 主页面
+├── styles.css              # 样式文件
+├── script.js               # 交互脚本
+├── data/
+│   └── resources.js        # 资源数据文件
+├── .github/
+│   └── workflows/
+│       └── pages.yml       # GitHub Pages 自动部署
+├── deploy-guide.md         # 部署指南
+└── README.md              # 项目说明
 ```
 
 ## 🚀 快速开始
@@ -174,4 +183,4 @@ color: #0088cc;
 
 ---
 
-⭐ 如果这个项目对您有帮助，请给它一个星标！ 
+⭐ 如果这个项目对您有帮助，请给它一个星标！

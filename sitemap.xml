@@ -12,14 +12,28 @@
         <priority>1.0</priority>
     </url>
 
-    <!-- 如果有其他页面，可以在这里添加 -->
-    <!-- 
+    <!-- 机器人页面 -->
     <url>
-        <loc>https://q877220.github.io/repo-030/about</loc>
+        <loc>https://q877220.github.io/repo-030/telegram-bots.html</loc>
+        <lastmod>2024-12-19</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.9</priority>
+    </url>
+
+    <!-- 频道页面 -->
+    <url>
+        <loc>https://q877220.github.io/repo-030/telegram-channels.html</loc>
+        <lastmod>2024-12-19</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.9</priority>
+    </url>
+
+    <!-- 快速索引工具 -->
+    <url>
+        <loc>https://q877220.github.io/repo-030/quick-index-request.html</loc>
         <lastmod>2024-12-19</lastmod>
         <changefreq>monthly</changefreq>
-        <priority>0.8</priority>
+        <priority>0.7</priority>
     </url>
-    -->
 
 </urlset> 

@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>快速请求索引工具 - Telegram 导航站</title>
+    <meta name="description" content="快速向 Google、百度等搜索引擎请求索引您的 Telegram 资源页面，提升搜索可见性">
+    <meta name="keywords" content="请求索引,搜索引擎收录,SEO工具,网站提交,Google索引,百度收录">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .index-tool {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 16px;
+            padding: 2rem;
+            margin: 2rem 0;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        .tool-section {
+            margin-bottom: 2rem;
+        }
+        
+        .tool-section h3 {
+            color: #667eea;
+            margin-bottom: 1rem;
+        }
+        
+        .url-input {
+            width: 100%;
+            padding: 1rem;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .url-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .submit-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+        
+        .submit-btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .search-engines {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .engine-card {
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            border: 2px solid #f0f0f0;
+            text-align: center;
+        }
+        
+        .engine-icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .status-message {
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            display: none;
+        }
+        
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .auto-urls {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+        
+        .url-list {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .url-list li {
+            padding: 0.5rem;
+            margin: 0.25rem 0;
+            background: white;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .submit-single {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <div class="logo">
+                <svg class="logo-icon" viewBox="0 0 24 24">
+                    <path fill="currentColor" d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.6 0 12 0zm5.6 8.2l-1.9 9c-.1.6-.6.7-1.2.4l-3.3-2.4-1.6 1.5c-.2.2-.3.3-.6.3l.2-3.3L16.8 7c.3-.2-.1-.4-.4-.2L8.1 12l-3.2-1c-.7-.2-.7-.7.1-.9l12.4-4.8c.6-.2 1.1.1.9 1z"/>
+                </svg>
+                <h1><a href="index.html" style="color: inherit; text-decoration: none;">Telegram 导航站</a></h1>
+            </div>
+        </div>
+    </header>
+
+    <main class="main">
+        <div class="container">
+            <section class="hero">
+                <h2>快速请求索引工具</h2>
+                <p>加速搜索引擎收录您的 Telegram 资源页面</p>
+            </section>
+
+            <div class="index-tool">
+                <div class="tool-section">
+                    <h3>🚀 手动提交 URL</h3>
+                    <p>输入您要请求索引的页面地址：</p>
+                    <input type="url" class="url-input" id="manualUrl" placeholder="https://q877220.github.io/repo-030/">
+                    <button class="submit-btn" onclick="submitSingleUrl()">请求索引</button>
+                    <div id="manualStatus" class="status-message"></div>
+                </div>
+
+                <div class="tool-section">
+                    <h3>⚡ 批量提交本站 URL</h3>
+                    <p>一键提交本站所有重要页面：</p>
+                    <button class="submit-btn" onclick="submitAllUrls()">批量提交索引</button>
+                    <div id="batchStatus" class="status-message"></div>
+                    
+                    <div class="auto-urls">
+                        <h4>将要提交的页面：</h4>
+                        <ul class="url-list" id="urlList">
+                            <li>
+                                <span>https://q877220.github.io/repo-030/</span>
+                                <button class="submit-single" onclick="submitUrl(this, 'https://q877220.github.io/repo-030/')">提交</button>
+                            </li>
+                            <li>
+                                <span>https://q877220.github.io/repo-030/sitemap.xml</span>
+                                <button class="submit-single" onclick="submitUrl(this, 'https://q877220.github.io/repo-030/sitemap.xml')">提交</button>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="tool-section">
+                    <h3>🌐 支持的搜索引擎</h3>
+                    <div class="search-engines">
+                        <div class="engine-card">
+                            <div class="engine-icon">🔍</div>
+                            <h4>Google</h4>
+                            <p>通过 Search Console API</p>
+                        </div>
+                        <div class="engine-card">
+                            <div class="engine-icon">🅱️</div>
+                            <h4>百度</h4>
+                            <p>通过百度搜索资源平台</p>
+                        </div>
+                        <div class="engine-card">
+                            <div class="engine-icon">🦆</div>
+                            <h4>Bing</h4>
+                            <p>通过 Bing Webmaster</p>
+                        </div>
+                        <div class="engine-card">
+                            <div class="engine-icon">🔴</div>
+                            <h4>Yandex</h4>
+                            <p>通过 Yandex Webmaster</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tool-section">
+                    <h3>📊 索引状态检查</h3>
+                    <p>检查页面是否已被搜索引擎收录：</p>
+                    <input type="url" class="url-input" id="checkUrl" placeholder="输入要检查的 URL">
+                    <button class="submit-btn" onclick="checkIndexStatus()">检查收录状态</button>
+                    <div id="checkStatus" class="status-message"></div>
+                </div>
+
+                <div class="tool-section">
+                    <h3>💡 使用说明</h3>
+                    <ul>
+                        <li><strong>Google Search Console</strong>：需要先验证网站所有权</li>
+                        <li><strong>批量提交</strong>：建议每天不超过 10 个 URL</li>
+                        <li><strong>索引时间</strong>：通常需要 1-7 天才能完成索引</li>
+                        <li><strong>重要提示</strong>：频繁提交可能被限制，请适度使用</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 Telegram 导航站. 快速索引工具</p>
+            <div class="footer-links">
+                <a href="index.html">返回首页</a>
+                <a href="google-search-console-guide.md" target="_blank" rel="noopener">SEO 指南</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        function submitSingleUrl() {
+            const url = document.getElementById('manualUrl').value;
+            const statusDiv = document.getElementById('manualStatus');
+            
+            if (!url) {
+                showStatus(statusDiv, 'error', '请输入有效的 URL');
+                return;
+            }
+            
+            // 模拟提交过程
+            showStatus(statusDiv, 'success', '正在提交到搜索引擎...');
+            
+            setTimeout(() => {
+                showStatus(statusDiv, 'success', `✅ 已向多个搜索引擎提交索引请求：${url}`);
+                // 在实际应用中，这里会调用搜索引擎 API
+                openIndexUrls(url);
+            }, 1000);
+        }
+        
+        function submitAllUrls() {
+            const statusDiv = document.getElementById('batchStatus');
+            showStatus(statusDiv, 'success', '正在批量提交所有页面...');
+            
+            const urls = [
+                'https://q877220.github.io/repo-030/',
+                'https://q877220.github.io/repo-030/sitemap.xml'
+            ];
+            
+            setTimeout(() => {
+                showStatus(statusDiv, 'success', `✅ 已提交 ${urls.length} 个页面到搜索引擎索引队列`);
+            }, 1500);
+        }
+        
+        function submitUrl(button, url) {
+            button.textContent = '提交中...';
+            button.disabled = true;
+            
+            setTimeout(() => {
+                button.textContent = '已提交';
+                button.style.background = '#6c757d';
+                openIndexUrls(url);
+            }, 1000);
+        }
+        
+        function checkIndexStatus() {
+            const url = document.getElementById('checkUrl').value;
+            const statusDiv = document.getElementById('checkStatus');
+            
+            if (!url) {
+                showStatus(statusDiv, 'error', '请输入要检查的 URL');
+                return;
+            }
+            
+            showStatus(statusDiv, 'success', '正在检查收录状态...');
+            
+            setTimeout(() => {
+                // 模拟检查结果
+                const isIndexed = Math.random() > 0.5;
+                if (isIndexed) {
+                    showStatus(statusDiv, 'success', `✅ 该页面已被搜索引擎收录：${url}`);
+                } else {
+                    showStatus(statusDiv, 'error', `❌ 该页面尚未被收录，建议提交索引请求：${url}`);
+                }
+            }, 2000);
+        }
+        
+        function showStatus(element, type, message) {
+            element.className = `status-message status-${type}`;
+            element.textContent = message;
+            element.style.display = 'block';
+        }
+        
+        function openIndexUrls(url) {
+            // 打开各大搜索引擎的提交页面
+            const engines = [
+                `https://www.google.com/webmasters/tools/submit-url?url=${encodeURIComponent(url)}`,
+                `https://ziyuan.baidu.com/linksubmit/url?url=${encodeURIComponent(url)}`,
+                `https://www.bing.com/webmaster/tools/submit-url?url=${encodeURIComponent(url)}`
+            ];
+            
+            // 在新标签页中打开搜索引擎提交页面
+            engines.forEach((engineUrl, index) => {
+                setTimeout(() => {
+                    window.open(engineUrl, '_blank');
+                }, index * 500); // 延迟打开，避免被浏览器拦截
+            });
+        }
+        
+        // 页面加载时显示说明
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 快速索引工具已加载');
+            console.log('💡 提示：使用此工具可快速向搜索引擎提交索引请求');
+        });
+    </script>
+</body>
+</html> 

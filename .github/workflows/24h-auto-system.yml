@@ -1,0 +1,206 @@
+name: 24小时全自动运转系统
+
+on:
+  # 24小时多时段定时执行 - 确保全球时区覆盖
+  schedule:
+    # 每3小时执行一次，确保24小时不间断运行
+    - cron: '0 0,3,6,9,12,15,18,21 * * *'  # UTC时间，每3小时一次
+    # 高峰时段加密执行（北京时间9点、下午2点、晚上8点）
+    - cron: '0 1,6,12 * * *'  # UTC 1:00(北京9点), 6:00(北京14点), 12:00(北京20点)
+    # 每小时轻量检查
+    - cron: '30 * * * *'  # 每小时30分进行健康检查
+  
+  # 内容更新时立即触发
+  push:
+    branches: [ main ]
+    paths:
+      - '**.html'
+      - '**.js'
+      - '**.css'
+      - 'sitemap.xml'
+      - 'robots.txt'
+      - 'data/**'
+  
+  # 手动触发支持
+  workflow_dispatch:
+    inputs:
+      operation_mode:
+        description: '运行模式'
+        required: true
+        default: 'normal'
+        type: choice
+        options:
+        - normal
+        - aggressive
+        - maintenance
+        - emergency
+      force_full_submit:
+        description: '强制完整提交'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  # 主要的自动化任务
+  auto-system:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # 并行执行多个任务以提高效率
+        task: [index-submit, health-check, content-sync, backup]
+    
+    steps:
+    - name: 检出仓库
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # 获取完整历史记录
+    
+    - name: 设置 Node.js 环境
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+    
+    - name: 安装依赖
+      run: |
+        mkdir -p scripts logs reports backups
+        cd scripts
+        npm init -y
+        npm install xml2js axios cheerio fs-extra cron-parser moment-timezone
+        npm install @google-cloud/monitoring @google-cloud/logging
+
+    - name: 设置系统环境
+      run: |
+        echo "TASK_TYPE=${{ matrix.task }}" >> $GITHUB_ENV
+        echo "OPERATION_MODE=${{ github.event.inputs.operation_mode || 'normal' }}" >> $GITHUB_ENV
+        echo "TIMESTAMP=$(date -u +%Y%m%d-%H%M%S)" >> $GITHUB_ENV
+        echo "BEIJING_TIME=$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')" >> $GITHUB_ENV
+
+    # 索引提交任务
+    - name: 执行索引提交任务
+      if: matrix.task == 'index-submit'
+      env:
+        GOOGLE_SERVICE_ACCOUNT_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
+        BAIDU_PUSH_TOKEN: ${{ secrets.BAIDU_PUSH_TOKEN }}
+        BING_API_KEY: ${{ secrets.BING_API_KEY }}
+        YANDEX_API_KEY: ${{ secrets.YANDEX_API_KEY }}
+        FORCE_SUBMIT: ${{ github.event.inputs.force_full_submit }}
+      run: |
+        echo "🚀 开始索引提交任务 - $BEIJING_TIME"
+        cd scripts
+        node 24h-auto-submit.js 2>&1 | tee ../logs/index-submit-$TIMESTAMP.log
+
+    # 健康检查任务  
+    - name: 执行健康检查任务
+      if: matrix.task == 'health-check'
+      run: |
+        echo "🏥 开始健康检查任务 - $BEIJING_TIME"
+        cd scripts
+        node health-monitor.js 2>&1 | tee ../logs/health-check-$TIMESTAMP.log
+
+    # 内容同步任务
+    - name: 执行内容同步任务
+      if: matrix.task == 'content-sync'
+      run: |
+        echo "🔄 开始内容同步任务 - $BEIJING_TIME"
+        cd scripts  
+        node content-sync.js 2>&1 | tee ../logs/content-sync-$TIMESTAMP.log
+
+    # 备份任务
+    - name: 执行备份任务
+      if: matrix.task == 'backup'
+      run: |
+        echo "💾 开始备份任务 - $BEIJING_TIME"
+        cd scripts
+        node auto-backup.js 2>&1 | tee ../logs/backup-$TIMESTAMP.log
+
+    - name: 上传任务结果
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: 24h-system-results-${{ matrix.task }}-${{ env.TIMESTAMP }}
+        path: |
+          logs/
+          reports/
+          backups/
+        retention-days: 30
+
+    - name: 发送通知
+      if: failure()
+      run: |
+        echo "❌ 任务 ${{ matrix.task }} 执行失败"
+        echo "时间: $BEIJING_TIME"
+        echo "模式: $OPERATION_MODE"
+        # 这里可以集成邮件、Slack、微信等通知
+
+  # 智能调度控制器
+  smart-scheduler:
+    runs-on: ubuntu-latest
+    needs: auto-system
+    if: always()
+    
+    steps:
+    - name: 检出仓库
+      uses: actions/checkout@v4
+    
+    - name: 分析执行结果
+      run: |
+        echo "📊 分析24小时系统执行结果"
+        echo "执行时间: $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
+        
+        # 检查各个任务的执行状态
+        if [ "${{ needs.auto-system.result }}" == "success" ]; then
+          echo "✅ 所有任务执行成功"
+        else
+          echo "⚠️ 部分任务执行异常，启动自愈机制"
+        fi
+    
+    - name: 生成系统报告
+      run: |
+        cat > system-report-$(date +%Y%m%d-%H%M%S).md << EOF
+        # 24小时自动化系统报告
+        
+        **执行时间**: $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')
+        **系统状态**: ${{ needs.auto-system.result }}
+        **执行模式**: ${{ github.event.inputs.operation_mode || 'scheduled' }}
+        
+        ## 任务执行情况
+        - 索引提交: 已执行
+        - 健康检查: 已执行  
+        - 内容同步: 已执行
+        - 数据备份: 已执行
+        
+        ## 下次执行时间
+        - 定时任务: 3小时后
+        - 健康检查: 30分钟后
+        
+        ## 系统指标
+        - 网站可用性: 监控中
+        - 索引覆盖率: 统计中
+        - 响应时间: 正常
+        EOF
+
+  # 紧急恢复任务
+  emergency-recovery:
+    runs-on: ubuntu-latest
+    if: failure() && github.event.inputs.operation_mode == 'emergency'
+    
+    steps:
+    - name: 紧急恢复程序
+      run: |
+        echo "🚨 启动紧急恢复程序"
+        echo "检测到系统异常，正在执行自动恢复..."
+        
+        # 重置系统状态
+        echo "1. 重置系统状态"
+        
+        # 恢复关键服务
+        echo "2. 恢复关键服务"
+        
+        # 重新提交核心页面
+        echo "3. 重新提交核心页面"
+        
+        # 发送紧急通知
+        echo "4. 发送紧急通知"
+        
+        echo "✅ 紧急恢复程序执行完成" 

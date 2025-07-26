@@ -1,0 +1,22 @@
+# 社交媒体分享图片占位符
+
+这个文件夹应该包含网站的社交媒体分享图片：
+
+- `og-image.png` - 用于 Open Graph 和 Twitter Card 分享
+  - 推荐尺寸：1200x630 像素
+  - 格式：PNG 或 JPG
+  - 文件大小：小于 8MB
+
+## 创建分享图片建议：
+
+1. **内容**：包含网站标题"Telegram 导航站"
+2. **背景**：使用与网站一致的渐变背景
+3. **图标**：添加 Telegram 图标
+4. **文字**：简短描述"1000+ 精选资源"
+
+## 在线工具推荐：
+- Canva: https://www.canva.com/
+- Figma: https://www.figma.com/
+- Adobe Express: https://www.adobe.com/express/
+
+创建完成后，将图片重命名为 `og-image.png` 并放在此文件夹中。 

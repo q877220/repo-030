@@ -1,0 +1,22 @@
+User-agent: *
+Allow: /
+
+# 网站地图位置
+Sitemap: https://q877220.github.io/repo-030/sitemap.xml
+
+# 抓取延迟（可选）
+Crawl-delay: 1
+
+# 允许抓取的重要文件
+Allow: /index.html
+Allow: /styles.css
+Allow: /script.js
+Allow: /data/resources.js
+Allow: /sitemap.xml
+
+# 不需要抓取的文件
+Disallow: /.git/
+Disallow: /.github/
+Disallow: /deploy-guide.md
+Disallow: /LICENSE
+Disallow: /.gitignore 

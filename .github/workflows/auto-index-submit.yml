@@ -1,0 +1,131 @@
+name: 自动索引提交
+
+on:
+  # 定时执行：每天北京时间上午9点（UTC+8 = UTC+0 - 8小时）
+  schedule:
+    - cron: '0 1 * * *'  # UTC 1:00 = 北京时间 9:00
+  
+  # 手动触发
+  workflow_dispatch:
+    inputs:
+      force_submit:
+        description: '强制提交所有URL'
+        required: false
+        default: false
+        type: boolean
+  
+  # 当有新内容推送时也触发（可选）
+  push:
+    branches: [ main ]
+    paths:
+      - '**.html'
+      - 'sitemap.xml'
+      - 'data/resources.js'
+
+jobs:
+  auto-index-submit:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 检出仓库
+      uses: actions/checkout@v4
+    
+    - name: 设置 Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: 安装依赖
+      run: |
+        cd scripts
+        npm init -y
+        npm install xml2js axios
+    
+    - name: 创建必要目录
+      run: |
+        mkdir -p reports
+        mkdir -p logs
+    
+    - name: 执行自动索引提交
+      env:
+        # 搜索引擎API密钥（需要在GitHub仓库设置中配置）
+        GOOGLE_SERVICE_ACCOUNT_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
+        GOOGLE_SITE_URL: 'https://q877220.github.io/repo-030/'
+        BAIDU_PUSH_TOKEN: ${{ secrets.BAIDU_PUSH_TOKEN }}
+        BAIDU_SITE_URL: 'q877220.github.io'
+        BING_API_KEY: ${{ secrets.BING_API_KEY }}
+        BING_SITE_URL: 'https://q877220.github.io/repo-030/'
+        FORCE_SUBMIT: ${{ github.event.inputs.force_submit }}
+      run: |
+        cd scripts
+        node auto-index-submit.js | tee ../logs/auto-submit-$(date +%Y%m%d-%H%M%S).log
+    
+    - name: 上传报告
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: index-submit-reports
+        path: |
+          reports/
+          logs/
+        retention-days: 30
+    
+    - name: 通知结果（可选）
+      if: failure()
+      run: |
+        echo "自动索引提交失败，请检查日志"
+        # 这里可以添加邮件通知或其他通知方式
+    
+    - name: 清理旧报告
+      run: |
+        # 保留最近30天的报告
+        find reports/ -name "*.json" -mtime +30 -delete || true
+        find logs/ -name "*.log" -mtime +30 -delete || true
+
+  # 额外的健康检查任务
+  health-check:
+    runs-on: ubuntu-latest
+    needs: auto-index-submit
+    if: always()
+    
+    steps:
+    - name: 检查网站可访问性
+      run: |
+        urls=(
+          "https://q877220.github.io/repo-030/"
+          "https://q877220.github.io/repo-030/telegram-bots.html"
+          "https://q877220.github.io/repo-030/telegram-channels.html"
+          "https://q877220.github.io/repo-030/quick-index-request.html"
+          "https://q877220.github.io/repo-030/sitemap.xml"
+        )
+        
+        for url in "${urls[@]}"; do
+          echo "检查: $url"
+          if curl -f -s -o /dev/null "$url"; then
+            echo "✅ $url 可访问"
+          else
+            echo "❌ $url 不可访问"
+            exit 1
+          fi
+        done
+    
+    - name: 检查sitemap有效性
+      run: |
+        echo "验证 sitemap.xml 格式..."
+        curl -s "https://q877220.github.io/repo-030/sitemap.xml" | head -10
+        
+        # 检查sitemap是否包含主要页面
+        sitemap_content=$(curl -s "https://q877220.github.io/repo-030/sitemap.xml")
+        
+        if echo "$sitemap_content" | grep -q "telegram-bots.html"; then
+          echo "✅ sitemap 包含机器人页面"
+        else
+          echo "❌ sitemap 缺少机器人页面"
+        fi
+        
+        if echo "$sitemap_content" | grep -q "telegram-channels.html"; then
+          echo "✅ sitemap 包含频道页面"
+        else
+          echo "❌ sitemap 缺少频道页面"
+        fi 

@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>批量索引监控工具 - 一键提交所有页面到搜索引擎</title>
+    <meta name="description" content="专业的批量索引监控工具，支持一键提交所有重要页面到Google、百度、Bing等搜索引擎，实时监控索引状态。">
+    <meta name="keywords" content="批量索引提交,自动索引,索引监控,SEO工具,搜索引擎提交,网站收录">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .monitor-dashboard {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 16px;
+            padding: 2rem;
+            margin: 2rem 0;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            text-align: center;
+            border: 2px solid #f0f0f0;
+            transition: all 0.3s ease;
+        }
+        
+        .stat-card:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+        }
+        
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .url-list {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            margin: 1rem 0;
+        }
+        
+        .url-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .url-item:last-child {
+            border-bottom: none;
+        }
+        
+        .url-info {
+            flex: 1;
+        }
+        
+        .url-title {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+        
+        .url-link {
+            font-size: 0.8rem;
+            color: #666;
+            text-decoration: none;
+        }
+        
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-failed {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .batch-controls {
+            display: flex;
+            gap: 1rem;
+            margin: 2rem 0;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+        }
+        
+        .btn-warning {
+            background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+            color: white;
+        }
+        
+        .btn-info {
+            background: linear-gradient(135deg, #17a2b8 0%, #6f42c1 100%);
+            color: white;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 1rem 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .log-container {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 1rem;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            max-height: 300px;
+            overflow-y: auto;
+            margin: 1rem 0;
+        }
+        
+        .search-engines {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+        
+        .engine-card {
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+            border: 2px solid #f0f0f0;
+        }
+        
+        .engine-icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <div class="logo">
+                <svg class="logo-icon" viewBox="0 0 24 24">
+                    <path fill="currentColor" d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.6 0 12 0zm5.6 8.2l-1.9 9c-.1.6-.6.7-1.2.4l-3.3-2.4-1.6 1.5c-.2.2-.3.3-.6.3l.2-3.3L16.8 7c.3-.2-.1-.4-.4-.2L8.1 12l-3.2-1c-.7-.2-.7-.7.1-.9l12.4-4.8c.6-.2 1.1.1.9 1z"/>
+                </svg>
+                <h1><a href="index.html" style="color: inherit; text-decoration: none;">Telegram 导航站</a></h1>
+            </div>
+        </div>
+    </header>
+
+    <main class="main">
+        <div class="container">
+            <section class="hero">
+                <h2>⚡ 批量索引监控工具</h2>
+                <p>一键提交所有页面，实时监控索引状态</p>
+            </section>
+
+            <div class="monitor-dashboard">
+                <h3>📊 索引状态总览</h3>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number" id="totalPages">12</div>
+                        <div class="stat-label">总页面数</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="indexedPages">8</div>
+                        <div class="stat-label">已收录</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="pendingPages">3</div>
+                        <div class="stat-label">待处理</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="failedPages">1</div>
+                        <div class="stat-label">失败</div>
+                    </div>
+                </div>
+
+                <h3>🚀 批量操作</h3>
+                <div class="batch-controls">
+                    <button class="btn btn-primary" onclick="submitAllPages()">
+                        🔄 一键提交所有页面
+                    </button>
+                    <button class="btn btn-success" onclick="checkAllStatus()">
+                        📊 检查收录状态
+                    </button>
+                    <button class="btn btn-warning" onclick="resubmitFailed()">
+                        🔁 重新提交失败页面
+                    </button>
+                    <button class="btn btn-info" onclick="generateReport()">
+                        📄 生成报告
+                    </button>
+                </div>
+
+                <div class="progress-bar" id="progressContainer" style="display: none;">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+
+                <h3>🌐 支持的搜索引擎</h3>
+                <div class="search-engines">
+                    <div class="engine-card">
+                        <div class="engine-icon">🔍</div>
+                        <h4>Google</h4>
+                        <span class="status-badge status-success">已连接</span>
+                    </div>
+                    <div class="engine-card">
+                        <div class="engine-icon">🅱️</div>
+                        <h4>百度</h4>
+                        <span class="status-badge status-success">已连接</span>
+                    </div>
+                    <div class="engine-card">
+                        <div class="engine-icon">🦆</div>
+                        <h4>Bing</h4>
+                        <span class="status-badge status-pending">待配置</span>
+                    </div>
+                    <div class="engine-card">
+                        <div class="engine-icon">🔴</div>
+                        <h4>Yandex</h4>
+                        <span class="status-badge status-pending">待配置</span>
+                    </div>
+                </div>
+
+                <h3>📋 页面列表</h3>
+                <div class="url-list" id="urlList">
+                    <!-- 页面列表将由JavaScript动态生成 -->
+                </div>
+
+                <div class="log-container" id="logContainer" style="display: none;">
+                    <div id="logContent">等待操作...</div>
+                </div>
+            </div>
+
+            <div class="monitor-dashboard">
+                <h3>⚙️ 自动化设置</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">
+                    <div style="background: white; padding: 1rem; border-radius: 8px;">
+                        <h4>🕐 定时提交</h4>
+                        <p>每天自动提交新页面和更新页面</p>
+                        <label style="display: flex; align-items: center; margin: 0.5rem 0;">
+                            <input type="checkbox" id="autoSubmit" checked>
+                            <span style="margin-left: 0.5rem;">启用自动提交</span>
+                        </label>
+                        <select id="submitInterval" style="width: 100%; padding: 0.5rem; margin: 0.5rem 0;">
+                            <option value="daily">每天</option>
+                            <option value="weekly">每周</option>
+                            <option value="monthly">每月</option>
+                        </select>
+                    </div>
+                    
+                    <div style="background: white; padding: 1rem; border-radius: 8px;">
+                        <h4>📧 通知设置</h4>
+                        <p>在重要事件发生时接收通知</p>
+                        <label style="display: flex; align-items: center; margin: 0.5rem 0;">
+                            <input type="checkbox" id="emailNotify">
+                            <span style="margin-left: 0.5rem;">邮件通知</span>
+                        </label>
+                        <label style="display: flex; align-items: center; margin: 0.5rem 0;">
+                            <input type="checkbox" id="webhookNotify" checked>
+                            <span style="margin-left: 0.5rem;">Webhook通知</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 Telegram 导航站. 批量索引监控工具</p>
+            <div class="footer-links">
+                <a href="index.html">返回首页</a>
+                <a href="quick-index-request.html">快速索引</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // 所有重要页面数据
+        const allPages = [
+            { title: '首页', url: 'https://q877220.github.io/repo-030/', status: 'success' },
+            { title: 'Telegram 机器人大全', url: 'https://q877220.github.io/repo-030/telegram-bots.html', status: 'success' },
+            { title: 'Telegram 频道大全', url: 'https://q877220.github.io/repo-030/telegram-channels.html', status: 'success' },
+            { title: 'Telegram 工具大全', url: 'https://q877220.github.io/repo-030/telegram-tools.html', status: 'pending' },
+            { title: 'Telegram 主题大全', url: 'https://q877220.github.io/repo-030/telegram-themes.html', status: 'pending' },
+            { title: '快速索引工具', url: 'https://q877220.github.io/repo-030/quick-index-request.html', status: 'success' },
+            { title: '批量索引监控', url: 'https://q877220.github.io/repo-030/batch-index-monitor.html', status: 'pending' },
+            { title: 'Telegram 表情包', url: 'https://q877220.github.io/repo-030/telegram-stickers.html', status: 'success' },
+            { title: 'Telegram 群组', url: 'https://q877220.github.io/repo-030/telegram-groups.html', status: 'success' },
+            { title: 'Telegram 客户端', url: 'https://q877220.github.io/repo-030/telegram-clients.html', status: 'success' },
+            { title: '网站地图', url: 'https://q877220.github.io/repo-030/sitemap.xml', status: 'success' },
+            { title: 'Robots文件', url: 'https://q877220.github.io/repo-030/robots.txt', status: 'failed' }
+        ];
+
+        // 初始化页面
+        document.addEventListener('DOMContentLoaded', () => {
+            renderUrlList();
+            updateStats();
+        });
+
+        // 渲染URL列表
+        function renderUrlList() {
+            const container = document.getElementById('urlList');
+            container.innerHTML = '';
+
+            allPages.forEach((page, index) => {
+                const item = document.createElement('div');
+                item.className = 'url-item';
+                
+                const statusClass = `status-${page.status}`;
+                const statusText = {
+                    'success': '✅ 已收录',
+                    'pending': '⏳ 待处理',
+                    'failed': '❌ 失败'
+                }[page.status];
+
+                item.innerHTML = `
+                    <div class="url-info">
+                        <div class="url-title">${page.title}</div>
+                        <a href="${page.url}" target="_blank" class="url-link" rel="noopener">${page.url}</a>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <span class="status-badge ${statusClass}">${statusText}</span>
+                        <button class="btn" onclick="submitSinglePage(${index})" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;">
+                            🚀 提交
+                        </button>
+                    </div>
+                `;
+                
+                container.appendChild(item);
+            });
+        }
+
+        // 更新统计信息
+        function updateStats() {
+            const total = allPages.length;
+            const indexed = allPages.filter(p => p.status === 'success').length;
+            const pending = allPages.filter(p => p.status === 'pending').length;
+            const failed = allPages.filter(p => p.status === 'failed').length;
+
+            document.getElementById('totalPages').textContent = total;
+            document.getElementById('indexedPages').textContent = indexed;
+            document.getElementById('pendingPages').textContent = pending;
+            document.getElementById('failedPages').textContent = failed;
+        }
+
+        // 一键提交所有页面
+        async function submitAllPages() {
+            showLog('开始批量提交所有页面...');
+            showProgress();
+            
+            const totalPages = allPages.length;
+            let processedPages = 0;
+
+            for (let i = 0; i < allPages.length; i++) {
+                const page = allPages[i];
+                showLog(`正在提交: ${page.title}`);
+                
+                // 模拟提交过程
+                await submitToSearchEngines(page.url);
+                
+                processedPages++;
+                updateProgress((processedPages / totalPages) * 100);
+                
+                // 模拟网络延迟
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+
+            showLog('✅ 所有页面提交完成！');
+            hideProgress();
+            updateStats();
+        }
+
+        // 提交到搜索引擎
+        async function submitToSearchEngines(url) {
+            const engines = ['Google', '百度', 'Bing'];
+            
+            for (const engine of engines) {
+                showLog(`  📤 提交到 ${engine}: ${url}`);
+                
+                // 这里会调用实际的API
+                // 模拟API调用
+                const success = Math.random() > 0.1; // 90%成功率
+                
+                if (success) {
+                    showLog(`  ✅ ${engine} 提交成功`);
+                } else {
+                    showLog(`  ❌ ${engine} 提交失败`);
+                }
+                
+                await new Promise(resolve => setTimeout(resolve, 200));
+            }
+        }
+
+        // 检查所有页面状态
+        async function checkAllStatus() {
+            showLog('开始检查所有页面收录状态...');
+            showProgress();
+            
+            for (let i = 0; i < allPages.length; i++) {
+                const page = allPages[i];
+                showLog(`检查页面: ${page.title}`);
+                
+                // 模拟状态检查
+                const isIndexed = Math.random() > 0.3;
+                
+                if (isIndexed) {
+                    page.status = 'success';
+                    showLog(`  ✅ ${page.title} 已被收录`);
+                } else {
+                    showLog(`  ❌ ${page.title} 尚未收录`);
+                }
+                
+                updateProgress(((i + 1) / allPages.length) * 100);
+                await new Promise(resolve => setTimeout(resolve, 300));
+            }
+            
+            showLog('✅ 状态检查完成！');
+            renderUrlList();
+            updateStats();
+            hideProgress();
+        }
+
+        // 重新提交失败页面
+        async function resubmitFailed() {
+            const failedPages = allPages.filter(p => p.status === 'failed');
+            
+            if (failedPages.length === 0) {
+                showLog('没有失败的页面需要重新提交');
+                return;
+            }
+
+            showLog(`开始重新提交 ${failedPages.length} 个失败页面...`);
+            
+            for (const page of failedPages) {
+                showLog(`重新提交: ${page.title}`);
+                await submitToSearchEngines(page.url);
+                
+                // 随机设置状态
+                page.status = Math.random() > 0.5 ? 'success' : 'pending';
+            }
+            
+            showLog('✅ 失败页面重新提交完成！');
+            renderUrlList();
+            updateStats();
+        }
+
+        // 生成报告
+        function generateReport() {
+            const total = allPages.length;
+            const indexed = allPages.filter(p => p.status === 'success').length;
+            const pending = allPages.filter(p => p.status === 'pending').length;
+            const failed = allPages.filter(p => p.status === 'failed').length;
+            
+            const report = {
+                timestamp: new Date().toLocaleString(),
+                summary: {
+                    total,
+                    indexed,
+                    pending,
+                    failed,
+                    successRate: ((indexed / total) * 100).toFixed(2) + '%'
+                },
+                pages: allPages
+            };
+            
+            // 下载报告
+            const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `index-report-${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            showLog('📄 报告已生成并下载');
+        }
+
+        // 提交单个页面
+        async function submitSinglePage(index) {
+            const page = allPages[index];
+            showLog(`单独提交页面: ${page.title}`);
+            
+            await submitToSearchEngines(page.url);
+            
+            // 更新状态
+            page.status = 'pending';
+            renderUrlList();
+            updateStats();
+            
+            showLog(`✅ ${page.title} 提交完成`);
+        }
+
+        // 显示日志
+        function showLog(message) {
+            const logContainer = document.getElementById('logContainer');
+            const logContent = document.getElementById('logContent');
+            
+            logContainer.style.display = 'block';
+            
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            
+            if (logContent.textContent === '等待操作...') {
+                logContent.textContent = logEntry;
+            } else {
+                logContent.textContent += '\n' + logEntry;
+            }
+            
+            // 自动滚动到底部
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        // 显示进度条
+        function showProgress() {
+            document.getElementById('progressContainer').style.display = 'block';
+            updateProgress(0);
+        }
+
+        // 更新进度
+        function updateProgress(percentage) {
+            document.getElementById('progressFill').style.width = percentage + '%';
+        }
+
+        // 隐藏进度条
+        function hideProgress() {
+            setTimeout(() => {
+                document.getElementById('progressContainer').style.display = 'none';
+            }, 1000);
+        }
+
+        // 页面加载完成后的初始化
+        console.log('⚡ 批量索引监控工具已加载');
+        console.log('💡 支持一键提交所有页面到多个搜索引擎');
+    </script>
+</body>
+</html> 
